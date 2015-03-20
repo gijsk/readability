@@ -99,7 +99,8 @@ Readability.prototype = {
     videos: /https?:\/\/(www\.)?(youtube|vimeo)\.com/i,
     nextLink: /(next|weiter|continue|>([^\|]|$)|»([^\|]|$))/i,
     prevLink: /(prev|earl|old|new|<|«)/i,
-    whitespace: /^\s*$/
+    whitespace: /^\s*$/,
+    hasContent: /\S$/,
   },
 
   DIV_TO_P_ELEMS: [ "A", "BLOCKQUOTE", "DL", "DIV", "IMG", "OL", "P", "PRE", "TABLE", "UL", "SELECT" ],
@@ -512,10 +513,8 @@ Readability.prototype = {
           // element. DIVs with only a P element inside and no text content can be
           // safely converted into plain P elements to avoid confusing the scoring
           // algorithm with DIVs with are, in practice, paragraphs.
-          var pIndex = this._getSinglePIndexInsideDiv(node);
-
-          if (pIndex >= 0) {
-            var newNode = node.childNodes[pIndex];
+          if (this._hasSinglePInsideElement(node)) {
+            var newNode = node.firstElementChild;
             node.parentNode.replaceChild(newNode, node);
             node = newNode;
           } else if (!this._hasChildBlockElement(node)) {
@@ -705,10 +704,12 @@ Readability.prototype = {
         }
       }
 
-      this.log("Article content pre-prep: " + articleContent.innerHTML);
+      if (this.ENABLE_LOGGING)
+        this.log("Article content pre-prep: " + articleContent.innerHTML);
       // So we have all of the content that we need. Now we clean it up for presentation.
       this._prepArticle(articleContent);
-      this.log("Article content post-prep: " + articleContent.innerHTML);
+      if (this.ENABLE_LOGGING)
+        this.log("Article content post-prep: " + articleContent.innerHTML);
 
       if (this._curPageNum === 1) {
         if (neededToCreateTopCandidate) {
@@ -730,7 +731,8 @@ Readability.prototype = {
         }
       }
 
-      this.log("Article content after paging: " + articleContent.innerHTML);
+      if (this.ENABLE_LOGGING)
+        this.log("Article content after paging: " + articleContent.innerHTML);
 
       // Now that we've gone through the full algorithm, check to see if
       // we got any meaningful content. If we didn't, we may need to re-run
@@ -847,33 +849,28 @@ Readability.prototype = {
   },
 
   /**
-   * Get child index of the only P element inside a DIV with no
-   * text content. Returns -1 if the DIV node contains non-empty
-   * text nodes or if it contains other element nodes.
+   * Check if this node has only whitespace and a single P element
+   * Returns false if the DIV node contains non-empty text nodes
+   * or if it contains no P or more than 1 element.
    *
    * @param Element
   **/
-  _getSinglePIndexInsideDiv: function(e) {
+  _hasSinglePInsideElement: function(e) {
+    // There should be exactly 1 element child which is a P:
+    if (e.children.length != 1 || e.firstElementChild.tagName !== "P") {
+      return false;
+    }
+    // And there should be no text nodes with real content
     var childNodes = e.childNodes;
-    var pIndex = -1;
-
     for (var i = childNodes.length; --i >= 0;) {
       var node = childNodes[i];
-
-      if (node.nodeType === Node.ELEMENT_NODE) {
-        if (node.tagName !== "P")
-          return -1;
-
-        if (pIndex >= 0)
-          return -1;
-
-        pIndex = i;
-      } else if (node.nodeType == Node.TEXT_NODE && this._getInnerText(node, false)) {
-        return -1;
+      if (node.nodeType == Node.TEXT_NODE &&
+          this.REGEXPS.hasContent.test(node.textContent)) {
+        return false;
       }
     }
 
-    return pIndex;
+    return true;
   },
 
   /**
