@@ -27,7 +27,8 @@ var JSDOMParser = scopeContext.JSDOMParser;
 
 var BASETESTCASE = '<html><body><p>Some text and <a class="someclass" href="#">a link</a></p>' +
                    '<div id="foo">With a <script>With < fancy " characters in it because' +
-                   '</script> that is fun.<span>And another node to make it harder</span></div><form><input type="text"/><input type="number"/>Here\'s a form</form></body></html>';
+                   '</script> that is fun.<span class="someclass">And another node to make ' +
+                   'it harder</span></div><form><input type="text"/><input type="number"/>Here\'s a form</form></body></html>';
 
 var baseDoc = new JSDOMParser().parse(BASETESTCASE);
 
@@ -206,5 +207,17 @@ describe("Test JSDOM functionality", function() {
           nodeExpect(replacedNode.nextElementSibling.previousElementSibling, replacedNode);
       }
     }
+  });
+  it("should have a working querySelector, querySelectorAll implementation", function() {
+    expect(baseDoc.querySelector("x")).eql(null);
+    expect(baseDoc.querySelector("#bogus")).eql(null);
+    expect(baseDoc.querySelector(".bogus")).eql(null);
+    nodeExpect(baseDoc.querySelector("a"), baseDoc.getElementsByTagName("a")[0]);
+    nodeExpect(baseDoc.querySelector("#foo"), baseDoc.getElementById("foo"));
+    nodeExpect(baseDoc.querySelector("div#fo"), null);
+    nodeExpect(baseDoc.querySelector("div#foo"), baseDoc.getElementById("foo"));
+    expect(baseDoc.querySelectorAll("div")).eql(baseDoc.getElementsByTagName("div"));
+    expect(baseDoc.querySelectorAll("div").length).eql(1);
+    expect(baseDoc.querySelectorAll(".someclass").length).eql(2);
   });
 });

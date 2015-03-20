@@ -274,6 +274,97 @@
     return elems;
   }
 
+  function querySelectorAll(selector) {
+    return querySelectorInternal.call(this, selector, true);
+  }
+
+  function querySelector(selector) {
+    return querySelectorInternal.call(this, selector, false);
+  }
+
+  function querySelectorInternal(selector, wantEverything) {
+    var selectorStruct = parseSelector(selector);
+    var elems = [];
+    var singleElem = null;
+    function getElems(node) {
+      var length = node.children.length;
+      for (var i = 0; i < length; i++) {
+        var child = node.children[i];
+        if (matchesSelector.call(child, selectorStruct)) {
+          if (!wantEverything) {
+            singleElem = child;
+            return;
+          }
+
+          elems.push(child);
+        }
+        getElems(child);
+        if (!wantEverything && singleElem) {
+          return;
+        }
+      }
+    }
+    getElems(this);
+    return wantEverything ? elems : singleElem;
+  }
+
+  function parseSelector(input) {
+    var items = input.toLowerCase().split(",");
+    return items.map(function(selector) {
+      selector = selector.trim();
+      if (!selector.length) {
+        throw "Invalid selector passed to parseSelector: " + input;
+      }
+      var rv = {tag: [], id: [], cls: []};
+      var part = "tag";
+      for (var i = 0; i < selector.length; i++) {
+        if (selector[i] === "#") {
+          part = "id";
+        } else if (selector[i] === ".") {
+          part = "cls";
+          rv.cls.push([]);
+        } else {
+          var c = selector.charCodeAt(i);
+          // For now, only care about alphanumeric:
+          if ((c > 96 && c < 123) || (c < 91 && c > 64) || (c > 47 && c < 58)) {
+            if (part === "cls") {
+              rv.cls[rv.cls.length - 1].push(selector[i]);
+            } else {
+              rv[part].push(selector[i]);
+            }
+          }
+        }
+      }
+      rv.tag = rv.tag.join('').toLowerCase();
+      rv.cls = rv.cls.map(function(clazz) {
+        return new RegExp("\\b" + clazz.join('') + "\\b");
+      });
+      rv.id = rv.id.join('');
+      return rv;
+    });
+  }
+
+  function matchesSelector(input) {
+    if (!Array.isArray(input)) {
+      input = parseSelector(input);
+    }
+    for (var i = 0; i < input.length; i++) {
+      var item = input[i];
+      if (!item.tag || this.localName === item.tag) {
+        if (!item.id || this.id === item.id) {
+          if (item.cls.length) {
+            var self = this;
+            return item.cls.every(function(clazz) {
+              return clazz.test(self.className);
+            });
+          }
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   var Node = function () {};
 
   Node.prototype = {
@@ -489,6 +580,9 @@
     title: "",
 
     getElementsByTagName: getElementsByTagName,
+    querySelector: querySelector,
+    querySelectorAll: querySelectorAll,
+
 
     getElementById: function (id) {
       function getElem(node) {
@@ -527,6 +621,8 @@
     nodeType: Node.ELEMENT_NODE,
 
     getElementsByTagName: getElementsByTagName,
+    querySelector: querySelector,
+    querySelectorAll: querySelectorAll,
 
     get className() {
       return this.getAttribute("class") || "";

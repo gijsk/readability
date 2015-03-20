@@ -879,16 +879,7 @@ Readability.prototype = {
    * @param Element
    */
   _hasChildBlockElement: function (e) {
-    var length = e.childNodes.length;
-    for (var i = 0; i < length; i++) {
-      var child = e.childNodes[i];
-      if (child.nodeType != Node.ELEMENT_NODE)
-        continue;
-
-      if (this.DIV_TO_P_ELEMS.indexOf(child.tagName) !== -1 || this._hasChildBlockElement(child))
-        return true;
-    }
-    return false;
+    return !!e.querySelector(this.DIV_TO_P_ELEMS.join(", "));
   },
 
   /**
