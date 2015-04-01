@@ -54,7 +54,12 @@ describe("Test page", function() {
       };
 
       describe("jsdom", function() {
-        var doc = jsdom(testPage.source);
+        var doc = jsdom(testPage.source, {
+          features: {
+            FetchExternalResources: false,
+            ProcessExternalResources: false
+          }
+        });
         removeCommentNodesRecursively(doc);
         var result = new Readability(uri, doc).parse();
         suite(result, testPage.expectedContent, testPage.expectedMetadata);
