@@ -307,6 +307,42 @@
     return elems;
   }
 
+  // This implements the heuristics of updating next/previousELementSibling
+  // references when we insert/replace an element node next to / instead of
+  // a non-element node (and therefore can't just use the existing
+  // next/previousElementSibling references on the replaced/reference node).
+  // We have to search in the childNodes array for elements suitable to our
+  // purposes.
+  function updateElementRefs(newNode, childNodes, childNodeIndex, children) {
+    newNode.previousElementSibling = (function() {
+      for (var i = childNodeIndex - 1; i >= 0; i--) {
+        if (childNodes[i].nodeType === Node.ELEMENT_NODE)
+          return childNodes[i];
+      }
+      return null;
+    })();
+    if (newNode.previousElementSibling) {
+      newNode.nextElementSibling = newNode.previousElementSibling.nextElementSibling;
+    } else {
+      newNode.nextElementSibling = (function() {
+        for (var i = childNodeIndex + 1; i < childNodes.length; i++) {
+          if (childNodes[i].nodeType === Node.ELEMENT_NODE)
+            return childNodes[i];
+        }
+        return null;
+      })();
+    }
+    if (newNode.previousElementSibling)
+      newNode.previousElementSibling.nextElementSibling = newNode;
+    if (newNode.nextElementSibling)
+      newNode.nextElementSibling.previousElementSibling = newNode;
+
+    if (newNode.nextElementSibling)
+      children.splice(children.indexOf(newNode.nextElementSibling), 0, newNode);
+    else
+      children.push(newNode);
+  }
+
   var Node = function () {};
 
   Node.prototype = {
@@ -352,6 +388,50 @@
       }
       this.childNodes.push(child);
       child.parentNode = this;
+    },
+
+    insertBefore: function (newChild, existingChild) {
+      if (existingChild === null) {
+        return this.appendChild(newChild);
+      }
+      // undefined, falsy, etc.
+      if (!existingChild) {
+        throw "Invalid argument";
+      }
+
+      var childNodeIndex = this.childNodes.indexOf(existingChild);
+      if (childNodeIndex === -1) {
+        throw "Reference child not a child of this node!";
+      }
+
+      if (newChild.parentNode) {
+        newChild.parentNode.removeChild(newChild);
+      }
+
+      this.childNodes.splice(childNodeIndex, 0, newChild);
+      newChild.previousSibling = existingChild.previousSibling;
+      if (newChild.previousSibling)
+        newChild.previousSibling.nextSibling = newChild;
+
+      newChild.nextSibling = existingChild;
+      existingChild.previousSibling = newChild;
+
+      if (newChild.nodeType === Node.ELEMENT_NODE) {
+        if (existingChild.nodeType === Node.ELEMENT_NODE) {
+          var childrenIndex = this.children.indexOf(existingChild);
+          this.children.splice(childrenIndex, 0, newChild);
+          newChild.previousElementSibling = existingChild.previousElementSibling;
+          if (newChild.previousElementSibling)
+            newChild.previousElementSibling.nextElementSibling = newChild;
+          newChild.nextElementSibling = existingChild;
+          existingChild.previousElementSibling = newChild;
+        } else {
+          updateElementRefs(newChild, this.childNodes, childNodeIndex, this.children);
+        }
+      }
+      // if the new node is not an element, we don't need to update the old one or
+      // its siblings (unlike in replaceChild) because the reference element is
+      // staying.
     },
 
     removeChild: function (child) {
@@ -420,34 +500,7 @@
               newNode.nextElementSibling.previousElementSibling = newNode;
             this.children[this.children.indexOf(oldNode)] = newNode;
           } else {
-            // Hard way:
-            newNode.previousElementSibling = (function() {
-              for (var i = childIndex - 1; i >= 0; i--) {
-                if (childNodes[i].nodeType === Node.ELEMENT_NODE)
-                  return childNodes[i];
-              }
-              return null;
-            })();
-            if (newNode.previousElementSibling) {
-              newNode.nextElementSibling = newNode.previousElementSibling.nextElementSibling;
-            } else {
-              newNode.nextElementSibling = (function() {
-                for (var i = childIndex + 1; i < childNodes.length; i++) {
-                  if (childNodes[i].nodeType === Node.ELEMENT_NODE)
-                    return childNodes[i];
-                }
-                return null;
-              })();
-            }
-            if (newNode.previousElementSibling)
-              newNode.previousElementSibling.nextElementSibling = newNode;
-            if (newNode.nextElementSibling)
-              newNode.nextElementSibling.previousElementSibling = newNode;
-
-            if (newNode.nextElementSibling)
-              this.children.splice(this.children.indexOf(newNode.nextElementSibling), 0, newNode);
-            else
-              this.children.push(newNode);
+            updateElementRefs(newNode, childNodes, childIndex, this.children);
           }
         } else {
           // new node is not an element node.
@@ -583,7 +636,13 @@
     createElement: function (tag) {
       var node = new Element(tag);
       return node;
-    }
+    },
+
+    createTextNode: function (txt) {
+      var node = new Text();
+      node.textContent = txt;
+      return node;
+    },
   };
 
   var Element = function (tag) {

@@ -104,6 +104,74 @@ describe("Test JSDOM functionality", function() {
     nodeExpect(foo.previousSibling, foo.previousElementSibling);
   });
 
+  it("should have working insertBefore functionality when inserting with ref to element", function() {
+    var foo = baseDoc.getELementById("foo");
+    var kids = foo.parentNode.childNodes.length;
+    var elementKids = foo.parentNode.children.length;
+    var fooPreviousEl = foo.previousElementSibling;
+    var fooPrevious = foo.previousSibling;
+
+    var extraTextNode = baseDoc.createTextNode("Ohi");
+    foo.parentNode.insertBefore(extraTextNode, foo);
+    nodeExpect(foo.previousSibling, extraTextNode);
+    nodeExpect(extraTextNode.nextSibling, foo);
+    nodeExpect(fooPrevious, extraTextNode.previousSibling);
+    nodeExpect(fooPreviousEl, foo.previousElementSibling);
+
+    expect(elementKids).eql(foo.parentNode.children.length);
+    expect(kids + 1).eql(foo.parentNode.childNodes.length);
+    extraTextNode.parentNode.removeChild(extraTextNode);
+
+    var extraElement = baseDoc.createElement("b");
+    foo.parentNode.insertBefore(extraElement, foo);
+    nodeExpect(foo.previousSibling, extraElement);
+    nodeExpect(extraElement.nextSibling, foo);
+    nodeExpect(fooPrevious, extraElement.previousSibling);
+    nodeExpect(fooPreviousEl, extraElement.previousElementSibling);
+    nodeExpect(extraElement, foo.previousElementSibling);
+    nodeExpect(foo, extraElement.nextElementSibling);
+
+    expect(elementKids + 1).eql(foo.parentNode.children.length);
+    expect(kids + 1).eql(foo.parentNode.childNodes.length);
+    bar.parentNode.removeChild(bar);
+  });
+
+  it("should have working insertBefore functionality when inserting with ref to non-element", function() {
+    var doc = new JSDOMParser().parse("<p><a href='http://www.mozilla.org/'>Mozilla</a> is <strong>awesome</strong>!</p>");
+
+    var textNode = baseDoc.getElementsByTagName("a")[0].nextSibling;
+    var kids = textNode.parentNode.childNodes.length;
+    var elementKids = textNode.parentNode.children.length;
+    var link = textNode.previousSibling;
+    var linkNextEl = link.nextElementSibling;
+    var textNodePrev = textNode.previousSibling;
+
+    var extraTextNode = baseDoc.createTextNode("Ohi");
+    textNode.parentNode.insertBefore(extraTextNode, textNode);
+    nodeExpect(textNode.previousSibling, extraTextNode);
+    nodeExpect(extraTextNode.nextSibling, textNode);
+    nodeExpect(textNodePrev, extraTextNode.previousSibling);
+
+    expect(elementKids).eql(textNode.parentNode.children.length);
+    expect(kids + 1).eql(textNode.parentNode.childNodes.length);
+    extraTextNode.parentNode.removeChild(extraTextNode);
+
+    var extraElement = baseDoc.createElement("b");
+    textNode.parentNode.insertBefore(extraElement, textNode);
+    nodeExpect(textNode.previousSibling, extraElement);
+    nodeExpect(extraElement.nextSibling, textNode);
+    nodeExpect(textNodePrev, extraElement.previousSibling);
+
+    nodeExpect(link, extraElement.previousElementSibling);
+    nodeExpect(link.nextElementSibling, extraElement);
+    nodeExpect(extraElement, linkNextEl.previousElementSibling);
+    nodeExpect(extraElement.nextElementSibling, linkNextEl);
+
+    expect(elementKids + 1).eql(textNode.parentNode.children.length);
+    expect(kids + 1).eql(textNode.parentNode.childNodes.length);
+    extraElement.parentNode.removeChild(extraElement);
+  });
+
   it("should handle attributes", function() {
     var link = baseDoc.getElementsByTagName("a")[0];
     expect(link.getAttribute("href")).eql("#");
